@@ -1,0 +1,5 @@
+redis.db
+redis.db.settings
+.idea
+.run
+.logs

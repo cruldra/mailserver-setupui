@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <title>邮件营销服务器配置</title>
+    <style>
+        .bg-purple {
+            background: white;
+        }
+
+        .grid-content {
+            border-radius: 4px;
+            min-height: 36px;
+        }
+
+        .el-row {
+            margin-bottom: 20px;
+        }
+
+        .card {
+            height: 400px;
+        }
+
+        .bottom {
+            margin-top: 13px;
+            line-height: 12px;
+        }
+
+        .button {
+            padding: 0;
+            float: right;
+        }
+
+        .image {
+            width: 100%;
+            display: block;
+        }
+
+        .clearfix:before,
+        .clearfix:after {
+            display: table;
+            content: "";
+        }
+
+        .clearfix:after {
+            clear: both
+        }
+
+        .com-title {
+            font-size: 15px;
+            color: black;
+        }
+
+        .com-desc {
+            font-size: 13px;
+            color: #999;
+            height: 50px;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <el-row :gutter="20">
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+        <el-col :span="16">
+            <el-steps :active="stepActiveIndex" process-status="process" finish-status="success">
+                <el-step v-for="step in settings.steps.value" :key="step.key" :title="step.title"
+                         :description="step.description"></el-step>
+            </el-steps>
+        </el-col>
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+    </el-row>
+    <!--填写ip和域名-->
+    <el-row v-if="settings.steps.active=='setDomainAndIp'" :gutter="20">
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+        <el-col :span="16">
+            <el-form ref="domainAndIpForm" id="domainAndIpForm" :model="settings.forms.domainAndIp"
+                     :rules="settings.rules.domainAndIp"
+                     label-width="100px">
+                <el-form-item label="域名" prop="domain">
+                    <el-input v-model="settings.forms.domainAndIp.domain"></el-input>
+                </el-form-item>
+                <el-form-item label="DNS管理器" prop="dnsManager">
+                    <el-select v-model="settings.forms.domainAndIp.dnsManager" placeholder="请选择你的域名管理商">
+                        <el-option v-for="man in dns_managers" :key="man.code" :label="man.label"
+                                   :value="man.code"></el-option>
+                    </el-select>
+                    <el-button @click="detectDnsManger" icon="el-icon-refresh" circle></el-button>
+                </el-form-item>
+                <el-form-item label="AccessKey">
+                    <el-input placeholder="你的api访问密钥" v-model="settings.forms.domainAndIp.ak"></el-input>
+                </el-form-item>
+                <el-form-item label="SecretKey">
+                    <el-input placeholder="有些平台可能只有AK" v-model="settings.forms.domainAndIp.sk"></el-input>
+                </el-form-item>
+                <el-form-item label="ip地址" prop="ip">
+                    <el-input v-model="settings.forms.domainAndIp.ip"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="submitForm('domainAndIpForm')">下一步</el-button>
+                </el-form-item>
+            </el-form>
+        </el-col>
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+    </el-row>
+
+    <!--选择要安装的组件-->
+    <div v-if="settings.steps.active=='selectComponents'">
+        <el-row :gutter="20" v-for="subArr in  components">
+            <el-col :span="4">
+                <div class="grid-content bg-purple"></div>
+            </el-col>
+            <el-col :span="4" v-for="com in subArr">
+                <el-card :body-style="{ padding: '0px' }">
+                    <img :src="com.logo" class="image">
+                    <div style="padding: 10px;">
+                        <div>
+                            <el-link :underline="false" class="com-title" :href="com.url" v-if="com.url">${com.name}
+                            </el-link>
+                            <span v-else class="com-title">
+                           ${com.name}
+                        </span></div>
+                        <div class="com-desc"><span>${com.description}</span></div>
+                        <div class="bottom clearfix">
+                            <el-checkbox @change="onComponentSelectChange(com,$event)" class="button"
+                                         v-model="com.checked"></el-checkbox>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="4">
+                <div class="grid-content bg-purple"></div>
+            </el-col>
+        </el-row>
+        <el-row :gutter="20">
+            <el-col :span="10">
+                <div class="grid-content bg-purple"></div>
+            </el-col>
+            <el-col :span="4">
+                <el-button type="primary" @click="previous_step">上一步</el-button>
+                <el-button type="primary" @click="submitForm('')">下一步</el-button>
+            </el-col>
+            <el-col :span="10">
+                <div class="grid-content bg-purple"></div>
+            </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+            <el-col :span="4">
+                <div class="grid-content bg-purple"></div>
+            </el-col>
+            <el-col :span="16">
+                <el-divider></el-divider>
+            </el-col>
+            <el-col :span="4">
+                <div class="grid-content bg-purple"></div>
+            </el-col>
+        </el-row>
+        <el-row :gutter="20" v-for="msg in funAlerts">
+            <el-col :span="4">
+                <div class="grid-content bg-purple"></div>
+            </el-col>
+            <el-col :span="16">
+                <el-alert
+                        :title="msg"
+                        type="success">
+                </el-alert>
+            </el-col>
+            <el-col :span="4">
+                <div class="grid-content bg-purple"></div>
+            </el-col>
+        </el-row>
+    </div>
+
+    <!--设置邮件服务器-->
+    <el-row v-if="settings.steps.active=='setMailServer'" :gutter="20">
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+        <el-col :span="16">
+            <el-form ref="setMailServerForm" id="setMailServerForm" :model="settings.forms.setMailServer"
+                     :rules="settings.rules.setMailServer"
+                     label-width="100px">
+                <el-form-item label="容器名称" prop="container_name">
+                    <el-input v-model="settings.forms.setMailServer.container_name"></el-input>
+                </el-form-item>
+                <el-form-item label="DNS" prop="dns">
+                    <el-input v-model="settings.forms.setMailServer.dns"></el-input>
+                </el-form-item>
+                <el-form-item label="数据目录" prop="data_dir">
+                    <el-input v-model="settings.forms.setMailServer.data_dir"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="previous_step">上一步</el-button>
+                    <el-button type="primary" @click="submitForm('setMailServerForm')">下一步</el-button>
+                </el-form-item>
+            </el-form>
+        </el-col>
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+    </el-row>
+
+    <!--设置phplist-->
+    <el-row v-if="settings.steps.active=='setPhplist'" :gutter="20">
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+        <el-col :span="16">
+            <el-form ref="setPhplistForm" id="setPhplistForm" :model="settings.forms.setPhplist"
+                     :rules="settings.rules.setPhplist"
+                     label-width="100px">
+                <el-form-item label="容器名称" prop="container_name">
+                    <el-input v-model="settings.forms.setPhplist.container_name"></el-input>
+                </el-form-item>
+                <el-form-item label="端口" prop="port">
+                    <el-input-number v-model="settings.forms.setPhplist.port" :min="1" :max="65535"></el-input-number>
+                </el-form-item>
+                <el-form-item label="php.ini" prop="php_ini">
+                    <el-input v-model="settings.forms.setPhplist.php_ini"></el-input>
+                </el-form-item>
+                <el-form-item label="配置文件" prop="phplist_config_file">
+                    <el-input v-model="settings.forms.setPhplist.phplist_config_file"></el-input>
+                </el-form-item>
+
+                <el-form-item label="数据库" prop="db_type">
+                    <el-select @change="onPhplistDbTypeChanged" v-model="settings.forms.setPhplist.db_type"
+                               placeholder="请选择">
+                        <el-option
+                                label="Docker"
+                                value="docker">
+                        </el-option>
+                        <el-option
+                                label="外部"
+                                value="external">
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+
+
+                <template v-if="settings.forms.setPhplist.db_type=='external'">
+
+                    <el-form-item label="数据库主机" prop="database_host">
+                        <el-input v-model="settings.forms.setPhplist.database_host"></el-input>
+                    </el-form-item>
+                    <el-form-item label="数据库名称" prop="database_name">
+                        <el-input v-model="settings.forms.setPhplist.database_name"></el-input>
+                    </el-form-item>
+                    <el-form-item label="数据库端口" prop="database_port">
+                        <el-input v-model="settings.forms.setPhplist.database_port"></el-input>
+                    </el-form-item>
+                    <el-form-item label="数据库用户" prop="database_user">
+                        <el-input v-model="settings.forms.setPhplist.database_user"></el-input>
+                    </el-form-item>
+                    <el-form-item label="数据库密码" prop="database_password">
+                        <el-input v-model="settings.forms.setPhplist.database_password"></el-input>
+                    </el-form-item>
+                </template>
+
+
+                <el-form-item>
+                    <el-button type="primary" @click="previous_step">上一步</el-button>
+                    <el-button type="primary" @click="submitForm('setPhplistForm')">下一步</el-button>
+                </el-form-item>
+            </el-form>
+        </el-col>
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+    </el-row>
+
+    <!--数据库设置-->
+    <el-row v-if="settings.steps.active=='setDatabase'" :gutter="20">
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+        <el-col :span="16">
+            <el-form label-width="150px" ref="setDatabaseForm" id="setDatabaseForm" :model="settings.forms.setDatabase"
+                     :rules="settings.rules.setDatabase"
+                     label-width="100px">
+                <el-form-item label="容器名称" prop="container_name">
+                    <el-input v-model="settings.forms.setDatabase.container_name"></el-input>
+                </el-form-item>
+                <el-form-item label="数据库类型" prop="db_type">
+                    <el-select @change="onDbSelectChange" v-model="settings.forms.setDatabase.db_type"
+                               placeholder="请选择数据库类型">
+                        <el-option v-for="db in databases" :key="db.code" :label="db.label"
+                                   :value="db.code"></el-option>
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="版本号" prop="version">
+                    <el-input v-model="settings.forms.setDatabase.version"></el-input>
+                </el-form-item>
+                <el-form-item label="初始数据库" prop="init_db_name">
+                    <el-input v-model="settings.forms.setDatabase.init_db_name"></el-input>
+                </el-form-item>
+                <el-form-item label="用户名" prop="username">
+                    <el-input v-model="settings.forms.setDatabase.username"></el-input>
+                </el-form-item>
+                <el-form-item label="密码" prop="password">
+                    <el-input v-model="settings.forms.setDatabase.password"></el-input>
+                </el-form-item>
+                <el-form-item label="端口" prop="port">
+                    <el-input v-model="settings.forms.setDatabase.port"></el-input>
+                </el-form-item>
+                <el-form-item label="数据目录" prop="port">
+                    <el-input v-model="settings.forms.setDatabase.data_dir"></el-input>
+                </el-form-item>
+                <el-form-item label="安装phpmyadmin" prop="install_php_myadmin">
+                    <el-switch v-model="settings.forms.setDatabase.install_php_myadmin"></el-switch>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="previous_step ">上一步</el-button>
+                    <el-button type="primary" @click="submitForm('setDatabaseForm')">下一步</el-button>
+                </el-form-item>
+            </el-form>
+        </el-col>
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+
+    </el-row>
+
+    <div style="display: none">
+        <form id="settingsForm"></form>
+    </div>
+</div>
+</body>
+{% block scripts %}
+<script type="text/javascript">
+    // @formatter:off
+    const settings ={{settings}}
+    const  dns_managers={{dns_managers}}
+    const  databases={{databases}}
+    // @formatter:on
+</script>
+<script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script>
+    Array.prototype.chunks = function (size) {
+
+        return this.reduce((resultArray, item, index) => {
+            const chunkIndex = Math.floor(index / size)
+
+            if (!resultArray[chunkIndex]) {
+                resultArray[chunkIndex] = [] // start a new chunk
+            }
+
+            resultArray[chunkIndex].push(item)
+
+            return resultArray
+        }, []);
+    }
+    Array.prototype.removeIf = function (predicate) {
+        let i = 0;
+        while (i < this.length) {
+            if (predicate(this[i], i)) this.splice(i, 1);
+            else ++i;
+        }
+    };
+    new Vue({
+        el: '#app',
+        data: function () {
+            return {
+                settings,
+                dns_managers,
+                databases,
+                funAlerts: [],
+                stepActiveIndex: undefined
+            }
+        },
+        delimiters: ['${', '}'],
+        computed: {
+            components: () => {
+                return settings.components.chunks(4)
+            }
+        },
+        watch: {
+            'settings.steps.active': {
+                handler(newName, oldName) {
+                    this.stepActiveIndex = this.settings.steps.value.findIndex((element, index, array) => newName === element.key)
+                },
+                immediate: true,
+            }
+        },
+        methods: {
+            previous_step() {
+                const url = '{{url_for("previous_step")}}'
+                $('#settingsForm').attr('action', url);
+                $('#settingsForm').attr('enctype', "application/json");
+                $('#settingsForm').attr('method', "post");
+                $('<input type="hidden" name="json"/>').val("{}").appendTo('#settingsForm');
+                $("#settingsForm").submit();
+            },
+            submitForm(formName) {
+                const nextStep = () => {
+                    const url = '{{url_for("next_step")}}'
+                    $('#settingsForm').attr('action', url);
+                    $('#settingsForm').attr('enctype', "application/json");
+                    $('#settingsForm').attr('method', "post");
+                    const data = JSON.stringify(this.settings);
+                    $('<input type="hidden" name="json"/>').val(data).appendTo('#settingsForm');
+                    $("#settingsForm").submit();
+                }
+                switch (formName) {
+                    case "domainAndIpForm":
+                    case "setMailServerForm":
+                    case "setDatabaseForm":
+                        this.$refs[formName].validate((valid) => {
+                            if (valid) {
+                                nextStep()
+                            } else {
+                                console.log('error submit!!');
+                                return false;
+                            }
+                        });
+                        break
+                    default:
+                        nextStep()
+                        break
+                }
+            },
+            detectDnsManger() {
+                $.ajax({
+                    type: 'get',
+                    url: `{{url_for("detect_dns_manager")}}`,
+                    data: {host: settings.forms.domainAndIp.domain},
+                    success: (res) => {
+                        this.settings.forms.domainAndIp.dnsManager = res
+                    },
+                    error: (res) => this.$notify.error({
+                        title: '错误',
+                        message: '无法获取你的DNS管理器,请手动获取'
+                    })
+                })
+
+            },
+            onComponentSelectChange(com, newVal) {
+                if (newVal) {
+                    if (this.funAlerts.every(msg => msg !== com.msg))
+                        this.funAlerts.push(com.msg)
+                } else this.funAlerts.removeIf(msg => msg === com.msg)
+                if (com['sub_step']) {
+                    if (newVal) {
+                        if (this.settings.steps.value.every(st => st.key !== com['sub_step'].key))
+                            this.settings.steps.value.push(com['sub_step'])
+                    } else this.settings.steps.value.removeIf(it => it.key === com['sub_step'].key)
+                }
+            },
+            onPhplistDbTypeChanged(val) {
+                const form = this.settings.forms['setPhplist']
+                const activeWith = form['activeWith']
+                if (activeWith)
+                    Object.assign(form, activeWith.find(it => form[it['prop']] === it['value']))
+            },
+            onDbSelectChange(val) {
+                const form = this.settings.forms['setDatabase']
+                const activeWith = form['activeWith']
+                if (activeWith)
+                    Object.assign(form, activeWith.find(it => form[it['prop']] === it['value']))
+            }
+        },
+        mounted() {
+            this.settings.components.forEach(com => {
+                this.onComponentSelectChange(com, com.checked)
+            })
+        }
+    })
+</script>
+{% endblock %}
+</html>

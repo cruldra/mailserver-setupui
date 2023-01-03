@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <title>管理邮箱账户</title>
+    <style>
+        .bg-purple {
+            background: white;
+        }
+
+        .grid-content {
+            border-radius: 4px;
+            min-height: 36px;
+        }
+
+        .demo-table-expand {
+            font-size: 0;
+        }
+
+        .demo-table-expand label {
+            width: 90px;
+            color: #99a9bf;
+        }
+
+        .demo-table-expand .el-form-item {
+            margin-right: 0;
+            margin-bottom: 0;
+            width: 50%;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <el-row :gutter="20">
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+        <el-col :span="16">
+            <el-button type="primary" @click="new_mail_account_dialog.visible=true" icon="el-icon-circle-plus">添加邮箱账户
+            </el-button>
+            <el-table
+                    :data="accounts"
+                    style="width: 100%">
+                <el-table-column
+                        prop="username"
+                        label="账号">
+                </el-table-column>
+                <el-table-column
+                        fixed="right"
+                        label="操作">
+                    <template slot-scope="scope">
+                        <el-button @click="open_update_pwd_form(scope.row)" type="text" size="small">修改密码</el-button>
+                        <el-button @click="delete_mail_account(scope.row)" type="text" size="small">删除</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </el-col>
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+    </el-row>
+
+    <el-dialog title="修改密码" :visible.sync="update_pwd_dialog.visible" width="30%"
+               :close-on-click-modal=false
+               :close-on-press-escape=false
+               center
+    >
+        <el-form :model="update_pwd_dialog.form">
+            <el-form-item label="新密码">
+                <el-input v-model="update_pwd_dialog.form.new_pwd" autocomplete="off"></el-input>
+            </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+            <el-button @click="update_pwd_dialog.visible = false">取 消</el-button>
+            <el-button type="primary" @click="update_pwd">确 定</el-button>
+        </div>
+    </el-dialog>
+
+
+    <el-dialog title="添加邮箱账户" :visible.sync="new_mail_account_dialog.visible" width="30%"
+               :close-on-click-modal=false
+               :close-on-press-escape=false
+               center
+    >
+        <el-form :model="new_mail_account_dialog.form">
+            <el-form-item label="用户名">
+                <el-input v-model="new_mail_account_dialog.form.username" autocomplete="off"></el-input>
+            </el-form-item>
+            <el-form-item label="密码">
+                <el-input v-model="new_mail_account_dialog.form.password" autocomplete="off"></el-input>
+            </el-form-item>
+            <el-form-item label="管理员">
+                <el-switch v-model="new_mail_account_dialog.form.is_administrator"></el-switch>
+            </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+            <el-button @click="new_mail_account_dialog.visible = false">取 消</el-button>
+            <el-button type="primary" @click="add_mail_account">保 存</el-button>
+        </div>
+    </el-dialog>
+</div>
+</body>
+<script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+{% block scripts %}
+<script>
+    // @formatter:off
+    const accounts ={{accounts}}
+    // @formatter:on
+    new Vue({
+        el: '#app',
+        delimiters: ['${', '}'],
+        data: function () {
+            return {
+                accounts,
+                selected_account: undefined,
+                update_pwd_dialog: {
+                    visible: false,
+                    form: {
+                        new_pwd: ''
+                    }
+                },
+                new_mail_account_dialog: {
+                    visible: false,
+                    form: {
+                        username: '',
+                        password: '',
+                        is_administrator: false
+                    }
+                }
+            }
+        },
+        methods: {
+            open_update_pwd_form(account) {
+                this.update_pwd_dialog.visible = true
+                this.selected_account = account
+            },
+            update_pwd() {
+                $.ajax({
+                    type: "post",
+                    url: '{{url_for("update_mail_account_pwd")}}',
+                    data: {
+                        'username': this.selected_account.username,
+                        'new_pwd': this.update_pwd_dialog.form.new_pwd
+                    },
+                    dataType: "json",
+                    success: (resp) => {
+                        if (resp.code === 0) {
+                            this.$notify.info({
+                                title: '修改邮箱密码',
+                                message: resp.msg
+                            });
+                            this.update_pwd_dialog.visible = false
+                        } else {
+                            this.$notify.error({
+                                title: '修改邮箱密码',
+                                message: resp.msg
+                            });
+                        }
+                    },
+                });
+            },
+            delete_mail_account(account) {
+                $.ajax({
+                    type: "post",
+                    url: '{{url_for("del_mail_account")}}',
+                    data: {
+                        'username': account.username
+                    },
+                    dataType: "json",
+                    success: (resp) => {
+                        if (resp.code === 0) {
+                            this.$notify.info({
+                                title: '删除邮箱账户',
+                                message: resp.msg
+                            });
+                            window.location.reload()
+                        } else {
+                            this.$notify.error({
+                                title: '删除邮箱账户',
+                                message: resp.msg
+                            });
+                        }
+                    }
+                });
+            },
+            add_mail_account() {
+                $.ajax({
+                    type: "post",
+                    url: '{{url_for("add_mail_account")}}',
+                    data: this.new_mail_account_dialog.form,
+                    dataType: "json",
+                    success: (resp) => {
+                        if (resp.code === 0) {
+                            this.$notify.info({
+                                title: '添加邮箱账户',
+                                message: resp.msg
+                            });
+                            window.location.reload()
+                        } else {
+                            this.$notify.error({
+                                title: '添加邮箱账户',
+                                message: resp.msg
+                            });
+                        }
+                    }
+                });
+            }
+        }
+    })
+</script>
+{% endblock %}
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <title>服务控制台</title>
+    <style>
+        .bg-purple {
+            background: white;
+        }
+
+        .grid-content {
+            border-radius: 4px;
+            min-height: 36px;
+        }
+
+        .demo-table-expand {
+            font-size: 0;
+        }
+
+        .demo-table-expand label {
+            width: 90px;
+            color: #99a9bf;
+        }
+
+        .demo-table-expand .el-form-item {
+            margin-right: 0;
+            margin-bottom: 0;
+            width: 50%;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <el-row :gutter="20">
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+        <el-col :span="16">
+            <el-button type="primary" @click="all_service_up" icon="el-icon-circle-plus">全部启动
+            </el-button>
+            <el-button type="primary" @click="all_service_down" icon="el-icon-circle-plus">全部停止
+            </el-button>
+            <el-table
+                    :data="services"
+                    style="width: 100%">
+                <el-table-column type="expand">
+                    <template slot-scope="props">
+                        <el-row>
+                            <el-button type="primary" @click="install" v-if="!props.row.status.installed" round>安装
+                            </el-button>
+                            <template v-if="props.row.todo_list">
+                                <el-button @click="todo(v,props.row)" v-for="(v,k) in props.row.todo_list "
+                                           :type="v.color" round>
+                                    ${v.label}
+                                </el-button>
+                            </template>
+                        </el-row>
+                    </template>
+                </el-table-column>
+                <el-table-column
+                        prop="name"
+                        label="名称">
+                </el-table-column>
+                <el-table-column
+                        prop="container_name"
+                        label="容器名">
+                </el-table-column>
+                <el-table-column
+                        prop="status.label"
+                        label="状态">
+                </el-table-column>
+                <el-table-column
+                        prop="manage_url"
+                        label="管理地址">
+                    <template slot-scope="scope" v-if="scope.row.manage_url">
+                        <a :href="scope.row.manage_url">管理</a>
+                    </template>
+                </el-table-column>
+            </el-table>
+        </el-col>
+        <el-col :span="4">
+            <div class="grid-content bg-purple"></div>
+        </el-col>
+    </el-row>
+</div>
+</body>
+<script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+{% block scripts %}
+<script>
+    // @formatter:off
+    const services ={{services}}
+    // @formatter:on
+    new Vue({
+        el: '#app',
+        delimiters: ['${', '}'],
+        data: function () {
+            return {
+                services
+            }
+        },
+        methods: {
+            install() {
+                window.location.href = '{{url_for("index",active="selectComponents")}}'
+            },
+            todo(task, service) {
+                $.ajax({
+                    type: "post",
+                    url: '{{url_for("todo")}}',
+                    data: JSON.stringify({'component_name': service.name, task}),
+                    contentType: "application/json; charset=utf-8",
+                    dataType: "json",
+                    success: (resp) => {
+                        if (resp.code === 0) {
+                            if (task['redirect'])
+                                window.location.href = resp.data
+                            else
+                                this.$notify.info({
+                                    title: task.label,
+                                    message: resp.data
+                                });
+
+                            if (task['persistence'] === "once")
+                                delete service['todo_list'][task.name]
+                        } else {
+                            this.$notify.error({
+                                title: task.label,
+                                message: resp.msg
+                            });
+                        }
+                    }
+                });
+            },
+            all_service_up() {
+                $.ajax({
+                    type: "get",
+                    url: '{{url_for("all_service_up")}}',
+                    dataType: "json",
+                    success: (resp) => {
+                        if (resp.code === 0) {
+                            this.$notify.info({
+                                title: "启动所有服务",
+                                message: resp.data
+                            });
+                            window.location.reload()
+                        } else {
+                            this.$notify.error({
+                                title: "启动所有服务",
+                                message: resp.msg
+                            });
+                        }
+                    }
+                });
+            },
+            all_service_down() {
+                $.ajax({
+                    type: "get",
+                    url: '{{url_for("all_service_down")}}',
+                    dataType: "json",
+                    success: (resp) => {
+                        if (resp.code === 0) {
+                            this.$notify.info({
+                                title: "停止所有服务",
+                                message: resp.data
+                            });
+                            window.location.reload()
+                        } else {
+                            this.$notify.error({
+                                title: "停止所有服务",
+                                message: resp.msg
+                            });
+                        }
+                    }
+                });
+            }
+        }
+    })
+</script>
+{% endblock %}
+</html>
