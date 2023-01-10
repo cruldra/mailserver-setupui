@@ -315,9 +315,9 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
     client = docker.from_env()
 
     mail_server_data_dir = home_path.joinpath(".mailserver-data")
-    mail_server_config_dir = mail_server_data_dir.joinpath(".mailserver-data/config")
-    # mail_account_manager = tools.MailAccountManager(mail_server_config_dir)
-    # mail_account_manager.add(f"root@{domain}", "123394", is_administrator=True)
+    mail_server_config_dir = mail_server_data_dir.joinpath("config/")
+    mail_account_manager = tools.MailAccountManager(mail_server_config_dir)
+    mail_account_manager.add(f"root@{domain}", "123394", is_administrator=True)
     # 添加管理邮箱账户到to_do_list
     settings_manager.add_task_to_component('Docker Mail Server', {
         "name": "manage_mail_accounts",
