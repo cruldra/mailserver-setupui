@@ -15,8 +15,8 @@ from redislite import Redis
 import tools
 from log import SSEHandler, formatter, logger
 from project_paths import ROOT
-from src.dns.manager import DnsManager
-from src.dns.record import DnsRecord
+from dns_manager.manager import DnsManager
+from dns_manager.record import DnsRecord
 from tools import download_file
 
 # region 日志设置

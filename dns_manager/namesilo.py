@@ -7,7 +7,7 @@ import jsonpickle as jsonpickle
 from dns.rdatatype import RdataType
 from uplink import *
 
-from src.dns.record import DnsRecord, Domain
+from dns_manager.record import DnsRecord, Domain
 
 
 class NamesiloApiClientException(Exception):

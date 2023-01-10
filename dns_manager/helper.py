@@ -3,7 +3,7 @@ import re
 import dns
 from dns.rdatatype import RdataType
 
-from src.dns.manager import DnsManager
+from dns_manager.manager import DnsManager
 
 
 def get_dns_manager(host) -> DnsManager:

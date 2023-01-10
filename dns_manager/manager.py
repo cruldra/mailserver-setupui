@@ -3,9 +3,7 @@ from types import DynamicClassAttribute
 
 import CloudFlare
 
-from src.dns.exceptions import DnsException
-from src.dns.namesilo import NamesiloApiClient
-from src.dns.record import DnsRecord
+from dns_manager.record import DnsRecord
 
 
 class IDnsManager:

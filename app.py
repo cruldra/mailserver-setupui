@@ -14,8 +14,8 @@ import installer
 import tools
 from db import Database
 from project_paths import TEMPLATES, ROOT, STATIC
-from src.dns.helper import get_dns_manager
-from src.dns.manager import DnsManager
+from dns_manager.helper import get_dns_manager
+from dns_manager.manager import DnsManager
 from tools import my_ip
 
 app = Flask(__name__)

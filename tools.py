@@ -15,9 +15,9 @@ from stringcase import snakecase, alphanumcase
 
 
 from project_paths import ROOT
-from src.dns.manager import DnsManager
-from src.dns.record import DnsRecord
-from src.log import logger
+from dns_manager.manager import DnsManager
+from dns_manager.record import DnsRecord
+from log import logger
 
 
 class MailAccountManager:

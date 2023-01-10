@@ -25,12 +25,12 @@ from stringcase import snakecase, alphanumcase
 from termcolor import colored
 
 from src import tools
-from src.dns.exceptions import DnsException
-from src.dns.helper import get_dns_manager, get_name_server
-from src.dns.manager import DnsManager
-from src.dns.namesilo import NamesiloApiClient, ResponseStatus
-from src.dns.record import DnsRecord
-from src.tools import download_file
+from dns.exceptions import DnsException
+from dns.helper import get_dns_manager, get_name_server
+from dns.manager import DnsManager
+from dns.namesilo import NamesiloApiClient, ResponseStatus
+from dns.record import DnsRecord
+from tools import download_file
 
 
 class LoggerTests(unittest.TestCase):
