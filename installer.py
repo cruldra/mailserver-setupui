@@ -376,9 +376,10 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
                     f"{mail_server_data_dir}/mail-logs/:/var/log/mail/",
                     f"{mail_server_data_dir}/config/:/tmp/docker-mailserver/",
                     f"/etc/localtime:/etc/localtime:ro",
-                    f"./config/certs/{domain}/:/tmp/ssl/:ro"],
+                    f"{config_dir_path}/certs/{domain}:/etc/letsencrypt/archive/{domain}:ro"],
         "restart": "always",
         "stop_grace_period": "1m",
         "cap_add": ["NET_ADMIN", "SYS_PTRACE"]
     }
     logger.info("Docker Mail Server安装完成")
+    copyfile(docker_compose_file_path, home_path.joinpath("docker-compose.yml"))

@@ -13,11 +13,10 @@ from docker.errors import NotFound
 from redislite import Redis
 from stringcase import snakecase, alphanumcase
 
-
-from project_paths import ROOT
 from dns_manager.manager import DnsManager
 from dns_manager.record import DnsRecord
 from log import logger
+from project_paths import ROOT
 
 
 class MailAccountManager:
@@ -139,6 +138,7 @@ class SettingsManager:
     """
     设置管理器
     """
+
     def __init__(self, **kwargs):
         self.json = None
         self.file = ROOT.joinpath(kwargs.get('file', 'settings.json'))
@@ -226,7 +226,7 @@ class SettingsManager:
 
     def get_services(self):
         """获取服务列表"""
-        p = Path(os.path.abspath(__file__ + "/../../docker-compose.yml"))
+        p = ROOT.joinpath("docker-compose.yml")
         docker_compose_yml = yaml.safe_load(p.read_text())
 
         def get_container_name(component_name):
