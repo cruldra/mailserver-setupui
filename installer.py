@@ -13,10 +13,10 @@ from dotenv import load_dotenv, set_key
 from redislite import Redis
 
 import tools
-from log import SSEHandler, formatter, logger
-from project_paths import ROOT
 from dns_manager.manager import DnsManager
 from dns_manager.record import DnsRecord
+from log import SSEHandler, formatter, logger
+from project_paths import ROOT
 from tools import download_file
 
 # region 日志设置
@@ -240,12 +240,16 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
 
     def check_cert_exist():
         """检查对应域名的证书是否存在,不存在才会使用cert申请"""
-        return config_dir_path.joinpath("certs/{domain}/fullchain1.pem").exists() and config_dir_path.joinpath(
-            "certs/{domain}/privkey1.pem").exists()
+        if dns_manager == DnsManager.NAMESILO:
+            return config_dir_path.joinpath("certs/{domain}/fullchain.pem").exists() and config_dir_path.joinpath(
+                "certs/{domain}/privkey.pem").exists()
+        elif dns_manager == DnsManager.CLOUDFLARE:
+            return config_dir_path.joinpath("certs/{domain}/fullchain1.pem").exists() and config_dir_path.joinpath(
+                "certs/{domain}/privkey1.pem").exists()
 
     if not check_cert_exist():
         if dns_manager == DnsManager.NAMESILO:
-            msg= f"namesilo不支持申请证书,你需要手动为域名{domain}申请泛域名证书并放到{config_dir_path.joinpath('certs/')}目录下"
+            msg = f"namesilo不支持申请证书,你需要手动为域名{domain}申请泛域名证书并放到{config_dir_path.joinpath('certs/')}目录下"
             logger.info(msg)
             raise Exception(msg)
         else:
