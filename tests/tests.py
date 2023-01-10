@@ -24,10 +24,13 @@ from redislite import Redis
 from stringcase import snakecase, alphanumcase
 from termcolor import colored
 
-import tools
-from domain import get_name_server, DnsManager, get_dns_manager, DnsRecord, DnsException
-from namesilo import NamesiloApiClient
-from tools import download_file
+from src import tools
+from src.dns.exceptions import DnsException
+from src.dns.helper import get_dns_manager, get_name_server
+from src.dns.manager import DnsManager
+from src.dns.namesilo import NamesiloApiClient, ResponseStatus
+from src.dns.record import DnsRecord
+from src.tools import download_file
 
 
 class LoggerTests(unittest.TestCase):
@@ -565,16 +568,19 @@ class TestClass:
 
 
 class NamesiloApiTestCase(unittest.TestCase):
-    apiClient = NamesiloApiClient(base_url="https://www.namesilo.com/api/")
+    apiClient = NamesiloApiClient(base_url="https://www.namesilo.com/api/", access_key="d629e564e617d775d10f15")
 
     def testListDomains(self):
-        pass
+        self.assertEqual(len(self.apiClient.listDomains("cruldra.com")), 4)
 
     def testListDnsRecord(self):
-        # TestClass().testFun("111")
         self.assertTrue(isinstance(self.apiClient.getDnsRecordsByDomain("cruldra.com"), list))
-        # print(NamesiloApiClient.__dict__)
-        # self.assertTrue(callable(self.apiClient.getDnsRecordsByDomain))
+
+    def testAddDnsRecordToDomain(self):
+        self.assertIsInstance(self.apiClient.addDnsRecordToDomain("cruldra.com", "test", "192.168.1.1"), str)
+
+    def testDeleteDnsRecordFromDomain(self):
+        self.assertEqual(self.apiClient.deleteDnsRecordFromDomain("cruldra.com", "test"), ResponseStatus.FAIL)
 
 
 if __name__ == '__main__':

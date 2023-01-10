@@ -3,3 +3,4 @@ redis.db.settings
 .idea
 .run
 .logs
+docker-compose.yml

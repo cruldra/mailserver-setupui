@@ -6,7 +6,6 @@ from pathlib import Path
 from shutil import copyfile
 
 import docker
-import pydnsbl
 import yaml
 from dns.rdatatype import RdataType
 from docker.errors import ContainerError
@@ -14,7 +13,6 @@ from dotenv import load_dotenv, set_key
 from redislite import Redis
 
 import tools
-from localhost_port import LocalHostPort
 from log import SSEHandler, formatter, logger
 from project_paths import ROOT
 from src.dns.manager import DnsManager
@@ -27,19 +25,24 @@ sse_handler = SSEHandler(red, "installation_progress")
 sse_handler.setFormatter(formatter)
 logger.addHandler(sse_handler)
 
-
 # endregion 日志设置
+docker_compose_file_path = ROOT.joinpath("docker-compose.yml")
+home_path, config_dir_path = None, None
 
 
 def __init_docker_compose_file__():
-    p = ROOT.joinpath("docker-compose.yml")
-    if not p.exists():
-        p.write_text(yaml.dump({"version": "3.7", "networks": {"network": None}, "services": {}}))
-    return yaml.safe_load(p.read_text())
+    """
+    初始化docker-compose.yml文件
+    :return: yaml文档对象
+    """
+    if not docker_compose_file_path.exists():
+        docker_compose_file_path.write_text(
+            yaml.dump({"version": "3.7", "networks": {"network": None}, "services": {}}))
+    return yaml.safe_load(docker_compose_file_path.read_text())
 
 
 def install():
-    docker_compose_doc = __init_docker_compose_file__()
+    docker_compose_file_contents = __init_docker_compose_file__()
     settings_manager = tools.SettingsManager()
 
     def component_setup(component_name, installer, service_name):
@@ -50,14 +53,14 @@ def install():
         :param service_name: docker服务名称
         """
         if settings_manager.get_component(component_name)['checked']:
-            installer(settings_manager, docker_compose_doc)
+            installer(settings_manager, docker_compose_file_contents)
         else:
-            docker_compose_doc['services'].pop(service_name, None)
+            docker_compose_file_contents['services'].pop(service_name, None)
 
     component_setup("Docker Mail Server", __install_mail_server__, "mailserver")
     component_setup("phpList", __install_phplist__, "phplist")
     component_setup("Database", __install_db__, "db")
-    Path(os.path.abspath(__file__ + "/../../docker-compose.yml")).write_text(yaml.dump(docker_compose_doc))
+    docker_compose_file_path.write_text(yaml.dump(docker_compose_file_contents))
     logger.info("all_done")
 
 
@@ -186,43 +189,30 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
     set_mail_server_form = settings['forms']['setMailServer']
     docker_container_name = set_mail_server_form['container_name']
     docker_container_dns = set_mail_server_form['dns']
-    docker_data_dir = set_mail_server_form['data_dir']
-
-    def pre_check():
-        """预检
-        :25端口是否开通
-        :ip是否包含在black list
-        """
-        port = LocalHostPort(25)
-        port.test()
-        if port.already_in_use:
-            logger.error("25端口当前被其它程序占用")
-        if not port.allow_incoming:
-            logger.error("25端口不可用,请检查防火墙配置")
-        if not port.allow_outgoing:
-            logger.error("25端口不可用,请确认你的服务器供应商没有禁用25端口")
-        ip_checker = pydnsbl.DNSBLIpChecker()
-        if ip_checker.check(ip).blacklisted:
-            logger.warning("通过ip信用检查,你的ip可能无法发送邮件")
-
-    # pre_check()
-
+    global home_path, config_dir_path
+    home_path = Path(set_mail_server_form['home_path'])
+    config_dir_path = home_path.joinpath("config")
     # region 添加dns记录
     logger.info("添加dns记录")
 
-    def add_record_if_not_existed(record):
+    def add_record_if_not_existed(record: DnsRecord):
+        """
+        检查dns记录是否存在,如果不存在则添加
+        :param record: dns记录
+        :return: None
+        """
         if dns_manager.check_record(record):
             logger.info(f"记录{record}已存在")
         else:
             dns_manager.addRecord(record, True)
 
-    r1 = DnsRecord(host=domain, name='mail', rdatatype=RdataType.A,
+    r1 = DnsRecord(domain=domain, name='mail', rdatatype=RdataType.A,
                    value=ip)
-    r2 = DnsRecord(host=domain, name='_dmarc', rdatatype=RdataType.TXT,
+    r2 = DnsRecord(domain=domain, name='_dmarc', rdatatype=RdataType.TXT,
                    value=f"v=DMARC1; p=quarantine; rua=mailto:dmarc.report@{domain}; ruf=mailto:dmarc.report@{domain}; fo=0; adkim=r; aspf=r; pct=100; rf=afrf; ri=86400; sp=quarantine")
-    r3 = DnsRecord(host=domain, name='@', rdatatype=RdataType.TXT,
+    r3 = DnsRecord(domain=domain, name='@', rdatatype=RdataType.TXT,
                    value="v=spf1 mx ~all")
-    r4 = DnsRecord(host=domain, name='@', rdatatype=RdataType.MX,
+    r4 = DnsRecord(domain=domain, name='@', rdatatype=RdataType.MX,
                    value=f"mail.{domain}")
     add_record_if_not_existed(r1)
     add_record_if_not_existed(r2)
@@ -250,35 +240,38 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
 
     def check_cert_exist():
         """检查对应域名的证书是否存在,不存在才会使用cert申请"""
-        return Path(os.path.abspath(f"{__file__}/../../config/certs/{domain}/fullchain1.pem")).exists() and Path(
-            os.path.abspath(f"{__file__}/../../config/certs/{domain}/privkey1.pem")).exists()
+        return config_dir_path.joinpath("certs/{domain}/fullchain1.pem").exists() and config_dir_path.joinpath(
+            "certs/{domain}/privkey1.pem").exists()
 
     if not check_cert_exist():
-        try:
-            cloudflare_ini = Path(os.path.abspath(__file__ + "/../../config/cloudflare.ini"))
-            cloudflare_ini.write_text(f"dns_cloudflare_api_token = {domain_and_ip_form['sk']}")
-            client = docker.from_env()
-            logs = client.containers.run(image='certbot/dns-cloudflare', detach=False, auto_remove=True, tty=True,
-                                         stdin_open=True,
-                                         name="certbot", volumes={
-                    os.path.abspath(__file__ + "/../../config/certs"): {'bind': f'/etc/letsencrypt/archive',
-                                                                        'mode': 'rw'},
-                    cloudflare_ini: {'bind': '/cloudflare.ini', 'mode': 'ro'}},
-                                         command=f"""certonly  --noninteractive \
-                                                          --agree-tos -m root@{domain} --preferred-challenges dns --expand  --dns-cloudflare  --dns-cloudflare-credentials /cloudflare.ini  \
-                                                          -d *.{domain}  --server https://acme-v02.api.letsencrypt.org/directory""")
-            logger.info(logs.decode("utf-8"))
-        except ContainerError as e:
-            logger.error(f"申请证书时出现异常:{str(e)}")
+        if dns_manager == DnsManager.NAMESILO:
+            logger.info(
+                f"namesilo不支持申请证书,你需要手动为域名{domain}申请泛域名证书并放到{config_dir_path.joinpath('certs/')}目录下")
+        else:
+            try:
+                cloudflare_ini_path = config_dir_path.joinpath("cloudflare.ini")
+                cloudflare_ini_path.write_text(f"dns_cloudflare_api_token = {domain_and_ip_form['sk']}")
+                client = docker.from_env()
+                logs = client.containers.run(image='certbot/dns-cloudflare', detach=False, auto_remove=True, tty=True,
+                                             stdin_open=True,
+                                             name="certbot", volumes={
+                        config_dir_path.joinpath("certs/"): {'bind': f'/etc/letsencrypt/archive', 'mode': 'rw'},
+                        cloudflare_ini_path: {'bind': '/cloudflare.ini', 'mode': 'ro'}},
+                                             command=f"""certonly  --noninteractive \
+                                                              --agree-tos -m root@{domain} --preferred-challenges dns --expand  --dns-cloudflare  --dns-cloudflare-credentials /cloudflare.ini  \
+                                                              -d *.{domain}  --server https://acme-v02.api.letsencrypt.org/directory""")
+                logger.info(logs.decode("utf-8"))
+            except ContainerError as e:
+                logger.error(f"申请证书时出现异常:{str(e)}")
     else:
         logger.info("证书申请成功")
     # endregion
 
     # region 下载辅助脚本及添加执行权限
     logger.info("下载辅助脚本")
-    man_script_path = os.path.abspath(__file__ + "/../../msman.sh")
+    man_script_path = home_path.joinpath("msman.sh")
     # 如果不存在就从远程下载
-    if not Path(man_script_path).exists():
+    if not man_script_path.exists():
         download_file("https://raw.githubusercontent.com/docker-mailserver/docker-mailserver/master/setup.sh",
                       man_script_path)
         st = os.stat(man_script_path)
@@ -292,8 +285,8 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
 
     # region 修改mailserver.env
     logger.info("配置环境变量")
-    example_env_file_path = os.path.abspath(f"{__file__}/../../mailserver-example.env")
-    env_file_path = os.path.abspath(f"{__file__}/../../ms.env")
+    example_env_file_path = home_path.joinpath("mailserver-example.env")
+    env_file_path = home_path.joinpath("ms.env")
     copyfile(example_env_file_path, env_file_path)
     load_dotenv(env_file_path)
     set_key(env_file_path, "TZ", "Asia/Shanghai", 'never')
@@ -308,9 +301,11 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
     # region 创建管理员账户
     logger.info("创建管理员账户")
     client = docker.from_env()
-    mail_server_config_dir = os.path.abspath(f"{__file__}/../../{docker_data_dir}/config")
-    mail_account_manager = tools.MailAccountManager(mail_server_config_dir)
-    mail_account_manager.add(f"root@{domain}", "123394", is_administrator=True)
+
+    mail_server_data_dir = home_path.joinpath(".mailserver-data")
+    mail_server_config_dir = mail_server_data_dir.joinpath(".mailserver-data/config")
+    # mail_account_manager = tools.MailAccountManager(mail_server_config_dir)
+    # mail_account_manager.add(f"root@{domain}", "123394", is_administrator=True)
     # 添加管理邮箱账户到to_do_list
     settings_manager.add_task_to_component('Docker Mail Server', {
         "name": "manage_mail_accounts",
@@ -336,7 +331,7 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
         key_file_path = Path(
             os.path.abspath(f"{mail_server_config_dir}/opendkim/keys/{domain}/mail.txt"))
         res = pattern.findall(key_file_path.read_text())
-        r5 = DnsRecord(host=domain, name='mail._domainkey', rdatatype=RdataType.TXT,
+        r5 = DnsRecord(domain=domain, name='mail._domainkey', rdatatype=RdataType.TXT,
                        value=f'{"".join(res)}')
         dns_manager.addRecord(r5, True)
         logger.info(logs.decode("utf-8"))
@@ -364,10 +359,10 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
         "domainname": domain,
         "env_file": "ms.env",
         "ports": ["25:25", "143:143", "465:465", "587:587", "993:993"],
-        "volumes": [f"{docker_data_dir}/mail-data/:/var/mail/",
-                    f"{docker_data_dir}/mail-state/:/var/mail-state/",
-                    f"{docker_data_dir}/mail-logs/:/var/log/mail/",
-                    f"{docker_data_dir}/config/:/tmp/docker-mailserver/",
+        "volumes": [f"{mail_server_data_dir}/mail-data/:/var/mail/",
+                    f"{mail_server_data_dir}/mail-state/:/var/mail-state/",
+                    f"{mail_server_data_dir}/mail-logs/:/var/log/mail/",
+                    f"{mail_server_data_dir}/config/:/tmp/docker-mailserver/",
                     f"/etc/localtime:/etc/localtime:ro",
                     f"./config/certs/{domain}/:/tmp/ssl/:ro"],
         "restart": "always",

@@ -70,7 +70,7 @@
             "url": "https://github.com/docker-mailserver/docker-mailserver"
         },
         {
-            "checked": true,
+            "checked": false,
             "description": "\u5f00\u6e90\u514d\u8d39\u7684\u90ae\u4ef6\u8425\u9500\u7ba1\u7406\u8f6f\u4ef6",
             "logo": "/static/phplist.jpeg",
             "manage_url": "http://103.47.113.84:1231/admin",
@@ -84,7 +84,7 @@
             "url": "https://www.phplist.org/"
         },
         {
-            "checked": true,
+            "checked": false,
             "description": "\u6570\u636e\u5e93",
             "logo": "/static/database.png",
             "manage_url": "http://103.47.113.84:8081",
@@ -99,11 +99,11 @@
     ],
     "forms": {
         "domainAndIp": {
-            "ak": "",
-            "dnsManager": "cloudflare",
-            "domain": "9l2z.xyz",
-            "ip": "103.47.113.84",
-            "sk": "ozTikFmlS9bxLmnJqLc80uCLCeBAQvcXOJ8mTVeW"
+            "ak": "d629e564e617d775d10f15",
+            "dnsManager": "namesilo",
+            "domain": "cruldra.com",
+            "ip": "103.251.113.133",
+            "sk": ""
         },
         "setDatabase": {
             "activeWith": [
@@ -138,7 +138,8 @@
         "setMailServer": {
             "container_name": "mailserver",
             "data_dir": "./.mailserver-data/",
-            "dns": "1.1.1.1"
+            "dns": "1.1.1.1",
+            "home_path": "/Users/liuye/Desktop/mail-server-install-test"
         },
         "setPhplist": {
             "activeWith": [
@@ -192,7 +193,7 @@
         "setPhplist": {}
     },
     "steps": {
-        "active": "setDomainAndIp",
+        "active": "setMailServer",
         "value": [
             {
                 "description": "",
@@ -208,16 +209,6 @@
                 "description": "",
                 "key": "setMailServer",
                 "title": "\u8bbe\u7f6e\u90ae\u4ef6\u670d\u52a1\u5668"
-            },
-            {
-                "description": "",
-                "key": "setPhplist",
-                "title": "\u8bbe\u7f6ephplist"
-            },
-            {
-                "description": "",
-                "key": "setDatabase",
-                "title": "\u8bbe\u7f6e\u6570\u636e\u5e93"
             }
         ]
     }

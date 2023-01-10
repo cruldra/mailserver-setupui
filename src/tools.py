@@ -13,16 +13,17 @@ from docker.errors import NotFound
 from redislite import Redis
 from stringcase import snakecase, alphanumcase
 
-from log import logger
+
 from project_paths import ROOT
 from src.dns.manager import DnsManager
 from src.dns.record import DnsRecord
+from src.log import logger
 
 
 class MailAccountManager:
-    __docker_mail_server_config_dir__: str
+    __docker_mail_server_config_dir__: Path
 
-    def __init__(self, config_dir: str):
+    def __init__(self, config_dir: Path):
         self.__docker_mail_server_config_dir__ = config_dir
         self.cache = self.CacheManager()
 
@@ -135,7 +136,9 @@ class MailAccountManager:
 
 
 class SettingsManager:
-
+    """
+    设置管理器
+    """
     def __init__(self, **kwargs):
         self.json = None
         self.file = ROOT.joinpath(kwargs.get('file', 'settings.json'))
@@ -386,6 +389,12 @@ def download_file(url, dist):
 
 
 def check_remote_port_opened(host, port) -> bool:
+    """
+    检查远程主机上的某个端口是否处于监听状态
+    :param host: 主机地址
+    :param port: 端口号
+    :return:
+    """
     a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     location = (host, port)
     result_of_check = a_socket.connect_ex(location)

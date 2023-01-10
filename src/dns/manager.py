@@ -4,8 +4,8 @@ from types import DynamicClassAttribute
 import CloudFlare
 
 from src.dns.exceptions import DnsException
-from src.dns.record import DnsRecord
 from src.dns.namesilo import NamesiloApiClient
+from src.dns.record import DnsRecord
 
 
 class IDnsManager:
@@ -32,10 +32,10 @@ class IDnsManager:
         """
         pass
 
-    def list(self, host, **kwargs):
+    def listDnsRecords(self, domain, **kwargs):
         """获取dns记录列表
 
-        :param host: 域名
+        :param domain: 域名
         """
         pass
 
@@ -70,14 +70,31 @@ class DnsManager(IDnsManager, Enum):
             raise DnsException(f"请确认域名{host}成功交由{self.label}托管.")
         return zones[0]['id']
 
-    def list(self, host, **kwargs):
+    def listDnsRecords(self, domain, **kwargs):
         def cloudflare():
             cf = CloudFlare.CloudFlare(email=self.ak, token=self.sk)
-            return cf.zones.dns_records.get(self.__get_cf_zone_id__(host))
+            return cf.zones.dns_records.get(self.__get_cf_zone_id__(domain))
 
         def namesilo():
-            namesilo_client = NamesiloApiClient(base_url="https://www.namesilo.com/api/")
-            return namesilo_client.getDnsRecordsByDomain(host)
+            namesilo_client = NamesiloApiClient(base_url="https://www.namesilo.com/api/", access_key=self.ak)
+            return namesilo_client.getDnsRecordsByDomain(domain)
+
+        match self.code:
+            case 'cloudflare':
+                return cloudflare()
+            case 'namesilo':
+                return namesilo()
+            case _:
+                raise DnsException.UNSUPPORTED(self.code)
+
+    def deleteRecord(self, record_id: str):
+        def cloudflare():
+            cf = CloudFlare.CloudFlare(email=self.ak, token=self.sk)
+            return cf.zones.dns_records.delete(self.__get_cf_zone_id__(record_id), record_id)
+
+        def namesilo():
+            namesilo_client = NamesiloApiClient(base_url="https://www.namesilo.com/api/", access_key=self.ak)
+            return namesilo_client.deleteDnsRecordFromDomain(record_id)
 
         match self.code:
             case 'cloudflare':
@@ -101,9 +118,14 @@ class DnsManager(IDnsManager, Enum):
                     "ttl": record.ttl if record.ttl else 1,
                     'priority': 10
                 })
-        def namesilo():
 
-            pass
+        def namesilo():
+            if record.name == "@":
+                record.name = ""
+            namesilo_client = NamesiloApiClient(base_url="https://www.namesilo.com/api/", access_key=self.ak)
+            namesilo_client.deleteDnsRecordFromDomain(record.domain, record.id)
+            return namesilo_client.addDnsRecordToDomain(record.domain, record.name, record.value, record.rdatatype.name)
+
         match self.code:
             case 'cloudflare':
                 return cloudflare()
@@ -113,7 +135,7 @@ class DnsManager(IDnsManager, Enum):
                 raise DnsException.UNSUPPORTED(self.code)
 
     def check_record(self, record: DnsRecord):
-        return any(dns_record == record for dns_record in self.list(record.host))
+        return any(dns_record == record for dns_record in self.listDnsRecords(record.domain))
 
     @classmethod
     def code_of(cls, code) -> IDnsManager:
