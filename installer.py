@@ -241,11 +241,11 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
     def check_cert_exist():
         """检查对应域名的证书是否存在,不存在才会使用cert申请"""
         if dns_manager == DnsManager.NAMESILO:
-            return config_dir_path.joinpath("certs/{domain}/fullchain.pem").exists() and config_dir_path.joinpath(
-                "certs/{domain}/privkey.pem").exists()
+            return config_dir_path.joinpath(f"certs/{domain}/fullchain.pem").exists() and config_dir_path.joinpath(
+                f"certs/{domain}/privkey.pem").exists()
         elif dns_manager == DnsManager.CLOUDFLARE:
-            return config_dir_path.joinpath("certs/{domain}/fullchain1.pem").exists() and config_dir_path.joinpath(
-                "certs/{domain}/privkey1.pem").exists()
+            return config_dir_path.joinpath(f"certs/{domain}/fullchain1.pem").exists() and config_dir_path.joinpath(
+                f"certs/{domain}/privkey1.pem").exists()
 
     if not check_cert_exist():
         if dns_manager == DnsManager.NAMESILO:
