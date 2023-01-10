@@ -245,8 +245,9 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
 
     if not check_cert_exist():
         if dns_manager == DnsManager.NAMESILO:
-            logger.info(
-                f"namesilo不支持申请证书,你需要手动为域名{domain}申请泛域名证书并放到{config_dir_path.joinpath('certs/')}目录下")
+            msg= f"namesilo不支持申请证书,你需要手动为域名{domain}申请泛域名证书并放到{config_dir_path.joinpath('certs/')}目录下"
+            logger.info(msg)
+            raise Exception(msg)
         else:
             try:
                 cloudflare_ini_path = config_dir_path.joinpath("cloudflare.ini")

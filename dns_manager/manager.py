@@ -3,6 +3,8 @@ from types import DynamicClassAttribute
 
 import CloudFlare
 
+from dns_manager.exceptions import DnsException
+from dns_manager.namesilo import NamesiloApiClient
 from dns_manager.record import DnsRecord
 
 
