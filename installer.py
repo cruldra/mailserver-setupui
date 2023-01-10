@@ -291,6 +291,9 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
     # region 修改mailserver.env
     logger.info("配置环境变量")
     example_env_file_path = home_path.joinpath("mailserver-example.env")
+    if not example_env_file_path.exists():
+        download_file("https://raw.githubusercontent.com/docker-mailserver/docker-mailserver/master/mailserver.env",
+                      example_env_file_path)
     env_file_path = home_path.joinpath("ms.env")
     copyfile(example_env_file_path, env_file_path)
     load_dotenv(env_file_path)
@@ -298,8 +301,12 @@ def __install_mail_server__(settings_manager: tools.SettingsManager, docker_comp
     set_key(env_file_path, "POSTMASTER_ADDRESS", f"root@{domain}", 'never')
     set_key(env_file_path, "PERMIT_DOCKER", "network", 'never')
     set_key(env_file_path, "SSL_TYPE", "manual", 'never')
-    set_key(env_file_path, "SSL_CERT_PATH", "/tmp/ssl/fullchain1.pem", 'never')
-    set_key(env_file_path, "SSL_KEY_PATH", "/tmp/ssl/privkey1.pem", 'never')
+    if dns_manager == DnsManager.NAMESILO:
+        set_key(env_file_path, "SSL_CERT_PATH", f"/etc/letsencrypt/archive/{domain}/fullchain.pem", 'never')
+        set_key(env_file_path, "SSL_KEY_PATH", f"/etc/letsencrypt/archive/{domain}/privkey.pem", 'never')
+    elif dns_manager == DnsManager.CLOUDFLARE:
+        set_key(env_file_path, "SSL_CERT_PATH", f"/etc/letsencrypt/archive/{domain}/fullchain1.pem", 'never')
+        set_key(env_file_path, "SSL_KEY_PATH", f"/etc/letsencrypt/archive/{domain}/privkey1.pem", 'never')
     logger.info("环境变量配置完成")
     # endregion
 
